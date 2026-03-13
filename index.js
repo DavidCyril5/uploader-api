@@ -1,11 +1,16 @@
-// server.js
+// server.js  (UPDATED with keep-alive pinger for Render free tier)
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');   // ← Added for self-pinging
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ================== CONFIG ==================
+const PING_URL = 'https://cdn.davidcyril.name.ng/';  // ← Your Render URL
+const PING_INTERVAL = 2 * 60 * 1000; // 2 minutes in ms
 
 // Create uploads folder if it doesn't exist
 const uploadDir = path.join(__dirname, 'uploads');
@@ -19,7 +24,6 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Unique filename: timestamp-random-original-ext
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, uniqueSuffix + path.extname(file.originalname));
   }
@@ -36,7 +40,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
-  limits: { fileSize: 100 * 1024 * 1024 } // 100MB limit
+  limits: { fileSize: 100 * 1024 * 1024 } // 100MB
 });
 
 // Serve uploaded files statically
@@ -68,7 +72,7 @@ app.post('/upload', (req, res) => {
           console.log(`✅ Auto-deleted: ${req.file.filename} (30 minutes expired)`);
         }
       });
-    }, 30 * 60 * 1000); // 30 minutes in ms
+    }, 30 * 60 * 1000);
 
     res.status(200).json({
       success: true,
@@ -80,24 +84,45 @@ app.post('/upload', (req, res) => {
   });
 });
 
-// ====================== EXTRA ENDPOINTS (optional but useful) ======================
-
-// List all currently active files
+// ====================== EXTRA ENDPOINTS ======================
 app.get('/files', (req, res) => {
   fs.readdir(uploadDir, (err, files) => {
     if (err) return res.status(500).json({ error: 'Server error' });
-    res.json({ files: files });
+    res.json({ files });
   });
 });
 
-// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'running', temp_storage: 'active' });
 });
 
+// NEW: Simple root endpoint (nice for pings)
+app.get('/', (req, res) => {
+  res.json({ message: 'Temp Image/Video Hosting API is alive! 🚀' });
+});
+
+// ====================== KEEP-ALIVE PINGER (for Render free tier) ======================
+function startKeepAlive() {
+  console.log(`🔄 Keep-alive pinger started → pinging ${PING_URL} every 2 minutes`);
+
+  setInterval(() => {
+    https.get(PING_URL, (res) => {
+      console.log(`✅ Keep-alive ping: ${res.statusCode} (${new Date().toLocaleTimeString()})`);
+      // Drain response body to prevent memory leak
+      res.resume();
+    }).on('error', (err) => {
+      console.error('❌ Keep-alive ping failed:', err.message);
+    });
+  }, PING_INTERVAL);
+}
+
+// ====================== START SERVER ======================
 app.listen(PORT, () => {
-  console.log(`🚀 Temp Image/Video Hosting API running on http://localhost:${PORT}`);
-  console.log(`📤 POST /upload with form field "file"`);
-  console.log(`🔗 Files served at /uploads/`);
-  console.log(`⏰ Every file auto-deletes after exactly 30 minutes`);
+  console.log(`🚀 Temp Image/Video Hosting API running on port ${PORT}`);
+  console.log(`📤 POST /upload`);
+  console.log(`🔗 Files at /uploads/`);
+  console.log(`⏰ Files auto-delete after 30 minutes`);
+  
+  // Start the pinger
+  startKeepAlive();
 });
