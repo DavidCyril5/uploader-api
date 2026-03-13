@@ -1,0 +1,29 @@
+{
+  "name": "temp-hosting-api",
+  "version": "1.0.0",
+  "description": "Temporary image & video hosting API (auto-deletes files after exactly 30 minutes)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "upload",
+    "temporary",
+    "image",
+    "video",
+    "hosting",
+    "auto-delete",
+    "multer",
+    "express"
+  ],
+  "author": "David Cyril",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
